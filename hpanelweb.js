@@ -150,7 +150,7 @@
 			}
 		}
 
-		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) + delta.x * 25 );
+		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) - delta.x * 25 );
 		if ( afterScrollTimeout ) {
 			afterScrollTimeout = clearTimeout( afterScrollTimeout );
 		}
