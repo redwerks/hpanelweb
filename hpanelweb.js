@@ -34,6 +34,11 @@
 	 * - When navigating via some form of user controlled scrolling after the user has stopped we should snap back to a standard location
 	 */
 
+	 // @fixme If something like a #anchor click tricks the container into moving to a different scroll position
+	 //        natively the calculations will be broken. We'll need to take this into account. Perhaps by testing for an offset,
+	 //        setting it back to 0 and recalculating (no animation) the location of columns
+
+
 	// Constructor
 	function HPanelWeb( container, selector, options ) {
 		this.container = container;
@@ -151,7 +156,7 @@
 			}
 		}
 
-		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) + delta.x );
+		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) - delta.x );
 		if ( afterScrollTimeout ) {
 			afterScrollTimeout = clearTimeout( afterScrollTimeout );
 		}
@@ -188,7 +193,7 @@
 		e.stopPropagation();
 		// Activate the column and bring it into view
 		hpanelweb.activateColumn( $column );
-		hpanelweb.recalculatePositions();
+		// hpanelweb.recalculatePositions();
 	}
 
 	function setupEvents() {
@@ -219,6 +224,74 @@
 			}
 			hpanelweb.recalculateSizes();
 			hpanelweb.recalculatePositions();
+		} );
+	} );
+
+	// Fragment link click handling
+	$( document ).delegate( 'a[href]', 'click', function( e ) {
+		var href = $( this ).attr( 'href' );
+		var m = href.match( /^#(.+)$/ );
+		if ( !m ) {
+			return;
+		}
+		var node = document.getElementById( m[1] );
+		if ( !node ) {
+			return;
+		}
+
+		var $column = $( node ).hpanelweb( 'get-column' );
+		var hpanelweb = $column.data( 'x-hpanelweb-parent' )
+		hpanelweb = $( hpanelweb ).data( 'x-hpanelweb' );
+		if ( !$column.length || !hpanelweb ) {
+			return;
+		}
+		hpanelweb.activateColumn( $column );
+		return false;
+	} );
+
+	// Left/Right arrow key handling
+	var KEY = { LEFT: 37, RIGHT: 39 }
+	$( window ).keyup( function( e ) {
+		if ( e.which !== KEY.LEFT && e.which !== KEY.RIGHT ) {
+			return;
+		}
+		var viewport = {
+			top: $( window ).scrollTop(),
+			left: $( window ).scrollLeft()
+		};
+		viewport.width = $( window ).width();
+		viewport.height = $( window ).height();
+		viewport.right = viewport.left + viewport.width;
+		viewport.bottom = viewport.top + viewport.height;
+		$( '.hpanelweb-container' ).each( function() {
+			var container = $( this ).offset();
+			container.width = $( this ).outerWidth();
+			container.height = $( this ).outerHeight();
+			container.right = container.left + container.width;
+			container.bottom = container.top + container.height;
+
+			var intersect = {
+				top: Math.max( viewport.top, container.top ),
+				bottom: Math.min( viewport.bottom, container.bottom ),
+				left: Math.max( viewport.left, container.left ),
+				right: Math.min( viewport.right, container.right )
+			};
+			intersect.width = Math.max( 0, intersect.right - intersect.left );
+			intersect.height = Math.max( 0, intersect.bottom - intersect.top );
+
+			if ( intersect.width / container.width > 0.75
+				&& intersect.height / container.height > 0.75 )
+			{
+				// If the container is at least 75% in view trigger navigation on it
+				var hpanelweb = $( this ).data( 'x-hpanelweb' );
+				if ( !hpanelweb ) {
+					return;
+				}
+				var activeColumn = hpanelweb.activeColumn;
+				activeColumn += ( e.which == KEY.LEFT ? -1 : +1 );
+				activeColumn = (activeColumn + hpanelweb.$columns.length) % hpanelweb.$columns.length;
+				hpanelweb.activateColumn( activeColumn );
+			}
 		} );
 	} );
 
@@ -274,7 +347,7 @@
 	// Method to recalculate the positions of elements whenever something on the
 	// page changes or the user makes a navigation action
 	HPanelWeb.prototype.recalculatePositions = function( animate ) {
-		var $columns = this.$columns, options = this.options;
+		var hpanelweb = this, $columns = this.$columns, options = this.options;
 		var sizes = this.getSizes();
 		var positions = new Array( sizes.length );
 
@@ -289,14 +362,26 @@
 		var planeOffset = this.$plane.position().left;
 		var activePosition = positions[this.activeColumn];
 		$.each( positions, function( i ) {
-			positions[i] -= activePosition + planeOffset - options.prevOverlap ;
+			positions[i] -= activePosition + planeOffset - options.prevOverlap;
 		} );
 
 		$columns.each( function( i ) {
 			var $$ = $( this );
-			$$.css( 'left', positions[i] );
+			var props = { left: positions[i] };
+			if ( animate ) {
+				$$.animate( props, { complete: function() { hpanelweb.refreshStyles( animate, $$ ); } } );
+			} else {
+				$$.css( props );
+			}
+			hpanelweb.refreshStyles( animate, $$ );
+		} );
+	};
+
+	HPanelWeb.prototype.refreshStyles = function( animate, $column ) {
+		( $column || this.$columns ).each( function() {
+			var $$ = $( this );
 			// @fixme This part is just for dev
-			$$.css( 'opacity', $$.is( ':activehcolumn' ) ? 1 : .35 );
+			$$.css( { opacity: $$.is( ':activehcolumn' ) ? 1 : .35 } );
 		} );
 	};
 
@@ -311,13 +396,25 @@
 
 	// Bind the library to jQuery
 	$.fn.hpanelweb = function( selector, options ) {
-		// $.extend options and defaults
-		// merge selector with options
-		this.each( function() {
-			var hpanelweb = new HPanelWeb( this, selector, options );
-		} );
-
-		return this;
+		if ( selector === 'get' ) {
+			var hpanelweb = this.data( 'x-hpanelweb' );
+			if ( hpanelweb ) {
+				return hpanelweb;
+			}
+			return this.closest( '.hpanelweb-container' ).data( 'x-hpanelweb' );
+		} else if ( selector === 'get-column' ) {
+			if ( this.is( '.hpanelweb-column' ) ) {
+				return this;
+			} else {
+				return this.closest( '.hpanelweb-column' );
+			}
+		} else {
+			// $.extend options and defaults
+			// merge selector with options
+			return this.each( function() {
+				var hpanelweb = new HPanelWeb( this, selector, options );
+			} );
+		}
 	};
 
 	// Extend jQuery's selectors
