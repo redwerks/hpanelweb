@@ -34,6 +34,11 @@
 	 * - When navigating via some form of user controlled scrolling after the user has stopped we should snap back to a standard location
 	 */
 
+	 // @fixme If something like a #anchor click tricks the container into moving to a different scroll position
+	 //        natively the calculations will be broken. We'll need to take this into account. Perhaps by testing for an offset,
+	 //        setting it back to 0 and recalculating (no animation) the location of columns
+
+
 	// Constructor
 	function HPanelWeb( container, selector, options ) {
 		this.container = container;
@@ -187,7 +192,7 @@
 		e.stopPropagation();
 		// Activate the column and bring it into view
 		hpanelweb.activateColumn( $column );
-		hpanelweb.recalculatePositions();
+		// hpanelweb.recalculatePositions();
 	}
 
 	function setupEvents() {
@@ -221,6 +226,29 @@
 		} );
 	} );
 
+	// Fragment link click handling
+	$( document ).delegate( 'a[href]', 'click', function( e ) {
+		var href = $( this ).attr( 'href' );
+		var m = href.match( /^#(.+)$/ );
+		if ( !m ) {
+			return;
+		}
+		var node = document.getElementById( m[1] );
+		if ( !node ) {
+			return;
+		}
+
+		var $column = $( node ).hpanelweb( 'get-column' );
+		var hpanelweb = $column.data( 'x-hpanelweb-parent' )
+		hpanelweb = $( hpanelweb ).data( 'x-hpanelweb' );
+		if ( !$column.length || !hpanelweb ) {
+			return;
+		}
+		hpanelweb.activateColumn( $column );
+		return false;
+	} );
+
+	// Left/Right arrow key handling
 	var KEY = { LEFT: 37, RIGHT: 39 }
 	$( window ).keyup( function( e ) {
 		if ( e.which !== KEY.LEFT && e.which !== KEY.RIGHT ) {
@@ -249,7 +277,7 @@
 			};
 			intersect.width = Math.max( 0, intersect.right - intersect.left );
 			intersect.height = Math.max( 0, intersect.bottom - intersect.top );
-			
+
 			if ( intersect.width / container.width > 0.75
 				&& intersect.height / container.height > 0.75 )
 			{
@@ -367,13 +395,25 @@
 
 	// Bind the library to jQuery
 	$.fn.hpanelweb = function( selector, options ) {
-		// $.extend options and defaults
-		// merge selector with options
-		this.each( function() {
-			var hpanelweb = new HPanelWeb( this, selector, options );
-		} );
-
-		return this;
+		if ( selector === 'get' ) {
+			var hpanelweb = this.data( 'x-hpanelweb' );
+			if ( hpanelweb ) {
+				return hpanelweb;
+			}
+			return this.closest( '.hpanelweb-container' ).data( 'x-hpanelweb' );
+		} else if ( selector === 'get-column' ) {
+			if ( this.is( '.hpanelweb-column' ) ) {
+				return this;
+			} else {
+				return this.closest( '.hpanelweb-column' );
+			}
+		} else {
+			// $.extend options and defaults
+			// merge selector with options
+			return this.each( function() {
+				var hpanelweb = new HPanelWeb( this, selector, options );
+			} );
+		}
 	};
 
 	// Extend jQuery's selectors
