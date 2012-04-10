@@ -221,6 +221,51 @@
 		} );
 	} );
 
+	var KEY = { LEFT: 37, RIGHT: 39 }
+	$( window ).keyup( function( e ) {
+		if ( e.which !== KEY.LEFT && e.which !== KEY.RIGHT ) {
+			return;
+		}
+		var viewport = {
+			top: $( window ).scrollTop(),
+			left: $( window ).scrollLeft()
+		};
+		viewport.width = $( window ).width();
+		viewport.height = $( window ).height();
+		viewport.right = viewport.left + viewport.width;
+		viewport.bottom = viewport.top + viewport.height;
+		$( '.hpanelweb-container' ).each( function() {
+			var container = $( this ).offset();
+			container.width = $( this ).outerWidth();
+			container.height = $( this ).outerHeight();
+			container.right = container.left + container.width;
+			container.bottom = container.top + container.height;
+
+			var intersect = {
+				top: Math.max( viewport.top, container.top ),
+				bottom: Math.min( viewport.bottom, container.bottom ),
+				left: Math.max( viewport.left, container.left ),
+				right: Math.min( viewport.right, container.right )
+			};
+			intersect.width = Math.max( 0, intersect.right - intersect.left );
+			intersect.height = Math.max( 0, intersect.bottom - intersect.top );
+			
+			if ( intersect.width / container.width > 0.75
+				&& intersect.height / container.height > 0.75 )
+			{
+				// If the container is at least 75% in view trigger navigation on it
+				var hpanelweb = $( this ).data( 'x-hpanelweb' );
+				if ( !hpanelweb ) {
+					return;
+				}
+				var activeColumn = hpanelweb.activeColumn;
+				activeColumn += ( e.which == KEY.LEFT ? -1 : +1 );
+				activeColumn = (activeColumn + hpanelweb.$columns.length) % hpanelweb.$columns.length;
+				hpanelweb.activateColumn( activeColumn );
+			}
+		} );
+	} );
+
 	function safeCalc( elem, callback ) {
 		// This function temporarily strips out local sizes and positions to allow us to calculate the automatic ones
 		// To avoid triggering transitions it also temporarily disables them
