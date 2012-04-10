@@ -85,6 +85,7 @@
 
 		var delta = { x: 0, y: 0 };
 
+		var linesScaleFactor = 25;
 		var deltaScaleFactor = 3;
 		if ( $.browser.MSIE
 			|| ( $.browser.webkit &&
@@ -94,7 +95,7 @@
 			deltaScaleFactor = 120;
 		}
 
-		// DOM Level 3 (untested, for forward compat)
+		// DOM Level 3 WheelEvent (IE9)
 		if ( origEvent.deltaX !== undefined || origEvent.deltaY !== undefined ) {
 			// @note deltaMode can be 0x00 = Pixel, 0x01 = Line, 0x02 = Page
 			// we don't really know what values we should use for Line or Page
@@ -102,24 +103,24 @@
 			delta.y = origEvent.deltaY;
 			delta.x = origEvent.deltaX;
 		}
-		// Double axis webkit deltas
+		// Double axis WebKit deltas
 		else if ( origEvent.wheelDeltaY !== undefined || origEvent.wheelDeltaX !== undefined ) {
-			delta.y = origEvent.wheelDeltaY / deltaScaleFactor;
-			delta.x = -1 * origEvent.wheelDeltaX / deltaScaleFactor;
+			delta.y = origEvent.wheelDeltaY / deltaScaleFactor * linesScaleFactor;
+			delta.x = -1 * origEvent.wheelDeltaX / deltaScaleFactor * linesScaleFactor;
 		}
 		// Gecko
 		else if ( origEvent.detail ) {
 			var detail = Math.min( 3, Math.max( -3, origEvent.detail ) );
 			// Gecko's horizontal axis
 			if ( origEvent.axis !== undefined && origEvent.axis === origEvent.HORIZONTAL_AXIS ) {
-				delta.x = detail / 3;
+				delta.x = detail / 3 * linesScaleFactor;
 			} else {
-				delta.y = -detail / 3;
+				delta.y = -detail / 3 * linesScaleFactor;
 			}
 		}
 		// IE and old browsers
 		else if ( origEvent.wheelDelta ) {
-			delta.y = origEvent.wheelDelta / deltaScaleFactor;
+			delta.y = origEvent.wheelDelta / deltaScaleFactor * linesScaleFactor;
 		}
 
 		delta.angle = Math.atan2( delta.y, delta.x ) * ( 180 / Math.PI );
@@ -150,7 +151,7 @@
 			}
 		}
 
-		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) + delta.x * 25 );
+		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) + delta.x );
 		if ( afterScrollTimeout ) {
 			afterScrollTimeout = clearTimeout( afterScrollTimeout );
 		}
