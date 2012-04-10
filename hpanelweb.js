@@ -318,7 +318,7 @@
 	// Method to recalculate the positions of elements whenever something on the
 	// page changes or the user makes a navigation action
 	HPanelWeb.prototype.recalculatePositions = function( animate ) {
-		var $columns = this.$columns, options = this.options;
+		var hpanelweb = this, $columns = this.$columns, options = this.options;
 		var sizes = this.getSizes();
 		var positions = new Array( sizes.length );
 
@@ -333,14 +333,26 @@
 		var planeOffset = this.$plane.position().left;
 		var activePosition = positions[this.activeColumn];
 		$.each( positions, function( i ) {
-			positions[i] -= activePosition + planeOffset - options.prevOverlap ;
+			positions[i] -= activePosition + planeOffset - options.prevOverlap;
 		} );
 
 		$columns.each( function( i ) {
 			var $$ = $( this );
-			$$.css( 'left', positions[i] );
+			var props = { left: positions[i] };
+			if ( animate ) {
+				$$.animate( props, { complete: function() { hpanelweb.refreshStyles( animate, $$ ); } } );
+			} else {
+				$$.css( props );
+			}
+			hpanelweb.refreshStyles( animate, $$ );
+		} );
+	};
+
+	HPanelWeb.prototype.refreshStyles = function( animate, $column ) {
+		( $column || this.$columns ).each( function() {
+			var $$ = $( this );
 			// @fixme This part is just for dev
-			$$.css( 'opacity', $$.is( ':activehcolumn' ) ? 1 : .35 );
+			$$.css( { opacity: $$.is( ':activehcolumn' ) ? 1 : .35 } );
 		} );
 	};
 
