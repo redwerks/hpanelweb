@@ -47,7 +47,6 @@
 		this.$columns = this.$container.find( selector ).addClass( 'hpanelweb-column' );
 		this.options = options || {};
 		this.options.padding = 32; // @fixme
-		this.options.prevOverlap = 100;
 		this.activeColumn = 0;
 		setup.call( this );
 	}
@@ -357,12 +356,25 @@
 			positions[i] = nextpos;
 			nextpos += options.padding + width;
 		} );
-		
+
+		var containerWidth = this.$container.width();
+		var activeWidth = 0;
+		var a;
+		for ( a = this.activeColumn; a < sizes.length; a++ ) {
+			if ( activeWidth + options.padding + sizes[a] >= containerWidth && activeWidth > 0 ) {
+				break;
+			}
+			activeWidth += options.padding + sizes[a];
+		}
+		activeWidth -= options.padding;
+
+		var edgeOverlap = Math.floor( ( containerWidth - activeWidth ) / 2 );
+
 		// Tweak for active column, plane, and prev element overlap
 		var planeOffset = this.$plane.position().left;
 		var activePosition = positions[this.activeColumn];
 		$.each( positions, function( i ) {
-			positions[i] -= activePosition + planeOffset - options.prevOverlap;
+			positions[i] -= activePosition + planeOffset - edgeOverlap;
 		} );
 
 		$columns.each( function( i ) {
