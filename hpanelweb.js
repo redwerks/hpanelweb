@@ -74,6 +74,9 @@
 			top: 0,
 			overflow: 'auto'
 		} );
+		// Prevent tap highlighting of the panel itself
+		this.$plane.css( '-webkit-tap-highlight-color', this.$container.css( '-webkit-tap-highlight-color' ) );
+		this.$container.css( '-webkit-tap-highlight-color', 'transparent' );
 		// Setup events
 		setupEvents.call( this );
 		// Calculate the setup
@@ -81,11 +84,100 @@
 		this.recalculatePositions();
 	}
 
+	function onlyevent( type ) {
+		if ( !onlyevent.type || onlyevent.type === type ) {
+			onlyevent.type = type;
+			return true;
+		}
+		if ( onlyevent.preference.indexOf( type ) > onlyevent.preference.indexOf( onlyevent.type ) ) {
+			onlyevent.type = type;
+			return true;
+		}
+		return false;
+	}
+	onlyevent.preference = [ 'mousewheel', 'DOMMouseScroll', 'wheel', 'touch' ];
+
+	function handleDelta( t, delta ) {
+		delta.angle = Math.atan2( delta.y, delta.x ) * ( 180 / Math.PI );
+		while ( delta.angle < 0 ) delta.angle += 360;
+		delta.angle = delta.angle % 360;
+
+		delta.horizontal = delta.angle < 45
+			|| delta.angle > ( 90 * 3.5 )
+			|| ( delta.angle > ( 90 * 1.5 ) && delta.angle < ( 90 * 2.5 ) );
+
+		var container = $( t );
+		container = container.is( '.hpanelweb-container' ) ? container : container.closest( '.hpanelweb-container' );
+		var hpanelweb = container.data( 'x-hpanelweb' );
+		if ( !hpanelweb ) {
+			return;
+		}
+ 		var targets = $( t )
+ 			.not( '.hpanelweb-container, .hpanelweb-plane' )
+ 			.parentsUntil( '.hpanelweb-container, .hpanelweb-plane' ).toArray();
+		while( targets.length ) {
+			var target = targets.shift();
+			var inScrollable = ( delta.horizontal && target.scrollWidth > target.offsetWidth )
+			|| ( !delta.horizontal && target.scrollHeight > target.offsetHeight );
+			if ( inScrollable ) {
+				// If we're inside an element with it's own ability to scroll in
+				// the direction the user is trying to scroll skip our handling
+				return;
+			}
+		}
+
+		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) - delta.x );
+		return hpanelweb;
+	}
+
+	var ontouch = {
+		start: function( e ) {
+			if ( !onlyevent('touch') ) return;
+			var touches = e.targetTouches || e.touches;
+			if ( touches.length > 1 ) {
+				// Only work on single finger movements
+				return;
+			}
+			ontouch.touch = { target: e.target, pageX: touches[0].pageX, pageY: touches[0].pageY };
+		},
+		move: function( e ) {
+			if ( !ontouch.touch ) {
+				return;
+			}
+			var touches = e.targetTouches || e.touches;
+			if ( touches.length > 1 ) {
+				// Only work on single finger movements
+				return;
+			}
+			var thistouch = { target: ontouch.touch.target, pageX: touches[0].pageX, pageY: touches[0].pageY };
+			var delta = {
+				x: ontouch.touch.pageX - thistouch.pageX,
+				y: ontouch.touch.pageY - thistouch.pageY
+			};
+			
+			var hpanelweb = handleDelta( e.target, delta );
+			if ( hpanelweb ) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+
+			ontouch.touch = thistouch;
+		},
+		end: function( e ) {
+			var hpanelweb = $( e.target ).hpanelweb( 'get' );
+			if ( hpanelweb ) {
+				hpanelweb.readyDelayedActivation();
+			}
+			delete ontouch.touch;
+		}
+	}
+
 	// @todo Do we need to add some code that restricts to only one type of event?
 	function onwheel( event, type ) {
 		var origEvent = event || window.event;
 		var e = $.event.fix( origEvent );
 		e.type = type;
+		if ( !onlyevent(type) ) return;
 
 		var delta = { x: 0, y: 0 };
 
@@ -127,46 +219,12 @@
 			delta.y = origEvent.wheelDelta / deltaScaleFactor * linesScaleFactor;
 		}
 
-		delta.angle = Math.atan2( delta.y, delta.x ) * ( 180 / Math.PI );
-		while ( delta.angle < 0 ) delta.angle += 360;
-		delta.angle = delta.angle % 360;
-
-		delta.horizontal = delta.angle < 45
-			|| delta.angle > ( 90 * 3.5 )
-			|| ( delta.angle > ( 90 * 1.5 ) && delta.angle < ( 90 * 2.5 ) );
-
-		var container = $( e.target );
-		container = container.is( '.hpanelweb-container' ) ? container : container.closest( '.hpanelweb-container' );
-		var hpanelweb = container.data( 'x-hpanelweb' );
-		if ( !hpanelweb ) {
-			return;
+		var hpanelweb = handleDelta( e.target, delta );
+		if ( hpanelweb ) {
+			hpanelweb.readyDelayedActivation();
+			e.preventDefault();
+			e.stopPropagation();
 		}
- 		var targets = $( e.target )
- 			.not( '.hpanelweb-container, .hpanelweb-plane' )
- 			.parentsUntil( '.hpanelweb-container, .hpanelweb-plane' ).toArray();
-		while( targets.length ) {
-			var target = targets.shift();
-			var inScrollable = ( delta.horizontal && target.scrollWidth > target.offsetWidth )
-			|| ( !delta.horizontal && target.scrollHeight > target.offsetHeight );
-			if ( inScrollable ) {
-				// If we're inside an element with it's own ability to scroll in
-				// the direction the user is trying to scroll skip our handling
-				return;
-			}
-		}
-
-		hpanelweb.$plane.css( 'left', parseFloat( hpanelweb.$plane.css( 'left' ) ) - delta.x );
-		if ( afterScrollTimeout ) {
-			afterScrollTimeout = clearTimeout( afterScrollTimeout );
-		}
-		afterScrollTimeout = setTimeout( function() { afterScroll.call( hpanelweb ); }, 300 );
-		e.preventDefault();
-		e.stopPropagation();
-	}
-
-	var afterScrollTimeout;
-	function afterScroll() {
-		this.activateColumn( this.$columns.filter( ':activehcolumn:first' ) );
 	}
 
 	function onclick( e ) {
@@ -192,12 +250,14 @@
 		e.stopPropagation();
 		// Activate the column and bring it into view
 		hpanelweb.activateColumn( $column );
-		// hpanelweb.recalculatePositions();
 	}
 
 	function setupEvents() {
 		var container = this.container, hpanelweb = this;;
 		if ( container.addEventListener ) {
+			container.addEventListener( 'touchstart', ontouch.start );
+			container.addEventListener( 'touchmove', ontouch.move );
+			container.addEventListener( 'touchend', ontouch.end );
 			container.addEventListener( 'wheel', function( e ) { return onwheel.call( this, e, 'wheel' ); }, false );
 			container.addEventListener( 'DOMMouseScroll', function( e ) { return onwheel.call( this, e, 'DOMMouseScroll' ); }, false );
 			container.addEventListener( 'mousewheel', function( e ) { return onwheel.call( this, e, 'mousewheel' ); }, false );
@@ -395,6 +455,17 @@
 			// @fixme This part is just for dev
 			$$.css( { opacity: $$.is( ':activehcolumn' ) ? 1 : .35 } );
 		} );
+	};
+
+	HPanelWeb.prototype.activateVisibleColumns = function() {
+		this.activateColumn( this.$columns.filter( ':activehcolumn:first' ) );
+	}
+	HPanelWeb.prototype.readyDelayedActivation = function() {
+		var hpanelweb = this;
+		if ( HPanelWeb.prototype.delayedActivationTimeout ) {
+			HPanelWeb.prototype.delayedActivationTimeout = clearTimeout( HPanelWeb.prototype.delayedActivationTimeout );
+		}
+		HPanelWeb.prototype.delayedActivationTimeout = setTimeout( function() { hpanelweb.activateVisibleColumns(); }, 300 );
 	};
 
 	HPanelWeb.prototype.activateColumn = function( column ) {
