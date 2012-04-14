@@ -1,0 +1,8 @@
+- Add mousemultiwheel / mouseomniwheel
+- Look into WebKit's vendord prefixed WheelEvent
+- Add calculation of the best vertical height of columns based on other elements the user wants in view
+- Fix onclick bug?
+- Handle column-count changes on-resize using an animation
+- Make scrolling over past the right end of the columns jump to the last column instead of the first
+- Start basing active calculations based on the center instead of the leftmost edge, and consider incorporating some understanding about what direction the user was moving at the time into activation
+- Implement column wraparound
