@@ -61,8 +61,7 @@
 		this.$container.css( {
 			display: 'block',
 			position: 'relative',
-			overflow: 'hidden',
-			height: $( window ).height() // @todo Configurable
+			overflow: 'hidden'
 		} );
 		this.$plane.css( {
 			position: 'absolute',
@@ -370,18 +369,27 @@
 		}
 	}
 
+	HPanelWeb.prototype.recalculateHeight = function() {
+		var $c = this.$container;
+		var height = $( window ).height();
+		$( this.options.visibleSiblings || [] ).each( function() {
+			height -= $( this ).outerHeight();
+		} );
+		$c.css( 'height', height );
+		this.$plane.height( $c.height() ); 
+	};
+
 	// Method to recalculate container and column sizes when something about the
 	// page changes.
 	HPanelWeb.prototype.recalculateSizes = function() {
-		var $container = this.$container;
-		$container.css( 'height', $( window ).height() ); // @todo This could be something else
-		this.$plane.height( $container.height() ); 
+		var $c = this.$container;
+		this.recalculateHeight();
 		// Reset the width to auto calculate it
-		$container.css( 'width', '' );
+		$c.css( 'width', '' );
 		// Then re-fix the width
-		$container.width( $container.width() );
-		var maxHeight = $container.height();
-		this.$plane.css( 'minWidth',  $container.width() );
+		$c.width( $c.width() );
+		var maxHeight = $c.height();
+		this.$plane.css( 'minWidth',  $c.width() );
 		this.$columns.each( function() {
 			// Force the current width to avoid overlap issues and some cases
 			// where the browser tries to shrink the content too much
