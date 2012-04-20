@@ -226,7 +226,7 @@
 		}
 	}
 
-	function onclick( e ) {
+	function onclick( event ) {
 		var origEvent = event || window.event;
 		var e = $.event.fix( origEvent );
 		var $container = $( e.target ).closest( '.hpanelweb-container' );
