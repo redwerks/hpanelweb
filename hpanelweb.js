@@ -411,25 +411,31 @@
 		} );
 	};
 
-	// Method to recalculate the positions of elements whenever something on the
-	// page changes or the user makes a navigation action
-	HPanelWeb.prototype.recalculatePositions = function( animate ) {
-		var hpanelweb = this, $columns = this.$columns, options = this.options;
-		var sizes = this.getSizes();
+	HPanelWeb.prototype.getPositions = function( sizes ) {
+		var options = this.options, $columns = this.$columns;
+		var sizes = sizes || this.getSizes();
 		var positions = new Array( sizes.length );
-
 		var nextpos = 0;
 		$.each( sizes, function( i, width ) {
 			var $$ = $( $columns[sizes[i]] );
 			positions[i] = nextpos;
 			nextpos += options.padding + width;
 		} );
+		return positions;
+	};
+
+	// Method to recalculate the positions of elements whenever something on the
+	// page changes or the user makes a navigation action
+	HPanelWeb.prototype.recalculatePositions = function( animate ) {
+		var hpanelweb = this, $columns = this.$columns, options = this.options;
+		var sizes = this.getSizes();
+		var positions = this.getPositions( sizes );
 
 		var containerWidth = this.$container.width();
 		var activeWidth = 0;
 		var a;
 		for ( a = this.activeColumn; a < sizes.length; a++ ) {
-			if ( activeWidth + options.padding + sizes[a] >= containerWidth && activeWidth > 0 ) {
+			if ( activeWidth + options.padding + sizes[a] > containerWidth && activeWidth > 0 ) {
 				break;
 			}
 			activeWidth += options.padding + sizes[a];
@@ -466,6 +472,56 @@
 	};
 
 	HPanelWeb.prototype.activateVisibleColumns = function() {
+		var options = this.options;
+		var positions = this.getPositions();
+
+		var containerWidth = this.$container.width();
+		var activeWidth = 0;
+		var activeColumns = this.$columns.filter( ':activehcolumn' )
+		var activeIndex = $.inArray( activeColumns[0], this.$columns );
+		activeColumns.each( function() {
+			activeWidth += options.padding + $( this ).width();
+		} );
+		activeWidth -= options.padding;
+
+		var leftWidth = activeWidth;
+		var leftIndex = activeIndex;
+		while ( leftIndex >= 0 ) {
+			var width = this.$columns.eq( leftIndex ).width();
+			if ( leftWidth + options.padding + width > containerWidth ) {
+				break;
+			}
+			leftWidth += options.padding + width;
+			leftIndex--;
+		}
+
+		var rightWidth = activeWidth;
+		var rightIndex = activeIndex + activeColumns.length;
+		while ( rightIndex < this.$columns.length ) {
+			var width = this.$columns.eq( rightIndex ).width();
+			if ( rightWidth + options.padding + width > containerWidth ) {
+				break;
+			}
+			rightWidth += options.padding + width;
+			rightIndex++;
+		}
+
+		var planeLeft = this.$plane.position().left;
+
+		console.log( {
+			leftWidth: leftWidth,
+			leftIndex: leftIndex,
+			leftEdge: positions[leftIndex],
+			left: planeLeft + positions[leftIndex],
+			leftOverlap: 0 - planeLeft + positions[leftIndex],
+			rightWidth: rightWidth,
+			rightIndex: rightIndex,
+			rightEdge: positions[rightIndex] + this.$columns.eq( rightIndex ).width(),
+			right: planeLeft + positions[rightIndex] + this.$columns.eq( rightIndex ).width(),
+			rightOverlap: planeLeft + positions[rightIndex] + this.$columns.eq( rightIndex ).width() - containerWidth,
+			containerWidth: containerWidth
+		} )
+
 		this.activateColumn( this.$columns.filter( ':activehcolumn:first' ) );
 	}
 	HPanelWeb.prototype.readyDelayedActivation = function() {
@@ -522,7 +578,7 @@
 		var $container = $( parent );
 		var containerWidth = $container.width();
 		var left = hpanelweb.$plane.position().left + $column.position().left;
-		var right = left + $column.outerWidth();
+		var right = left + $column.width();
 		return left >= 0 && right <= containerWidth;
 	};
 
