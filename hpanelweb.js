@@ -45,8 +45,9 @@
 		this.$container = $( container ).addClass( 'hpanelweb-container' );
 		this.$container.data( 'x-hpanelweb', this );
 		this.$columns = this.$container.find( selector ).addClass( 'hpanelweb-column' );
-		this.options = options || {};
-		this.options.padding = 32; // @fixme
+		this.options = $.extend( {
+			padding: 32
+		}, options );
 		this.activeColumn = 0;
 		setup.call( this );
 	}
@@ -522,7 +523,7 @@
 		var $container = $( parent );
 		var containerWidth = $container.width();
 		var left = hpanelweb.$plane.position().left + $column.position().left;
-		var right = left + $column.outerWidth();
+		var right = left + $column.width();
 		return left >= 0 && right <= containerWidth;
 	};
 
