@@ -46,7 +46,8 @@
 		this.$container.data( 'x-hpanelweb', this );
 		this.$columns = this.$container.find( selector ).addClass( 'hpanelweb-column' );
 		this.options = $.extend( {
-			padding: 32
+			padding: 32,
+			leftOverlap: false
 		}, options );
 		this.activeColumn = 0;
 		setup.call( this );
@@ -437,7 +438,9 @@
 		}
 		activeWidth -= options.padding;
 
-		var edgeOverlap = Math.floor( ( containerWidth - activeWidth ) / 2 );
+		var edgeOverlap = typeof options.leftOverlap === 'number'
+			? options.leftOverlap
+			: Math.floor( ( containerWidth - activeWidth ) / 2 );
 
 		// Tweak for active column, plane, and prev element overlap
 		var planeOffset = this.$plane.position().left;
