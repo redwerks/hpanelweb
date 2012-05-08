@@ -275,8 +275,9 @@
 		} );
 	}
 
-	// Window resize handling
-	$( window ).resize( function() {
+	// Window resize, ready, and load handling
+	// We recalc on load in addition to ready in case a freshly loaded image has changed the area dimensions
+	function fullRecalculate() {
 		$( '.hpanelweb-container' ).each( function() {
 			var hpanelweb = $( this ).data( 'x-hpanelweb' );
 			if ( !hpanelweb ) {
@@ -285,7 +286,10 @@
 			hpanelweb.recalculateSizes();
 			hpanelweb.recalculatePositions();
 		} );
-	} );
+	}
+	$( window ).resize( fullRecalculate );
+	$( document ).ready( fullRecalculate );
+	$( document ).load( fullRecalculate );
 
 	// Fragment link click handling
 	$( document ).delegate( 'a[href]', 'click', function( e ) {
