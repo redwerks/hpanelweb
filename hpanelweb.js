@@ -394,7 +394,7 @@
 		$c.css( 'width', '' );
 		// Then re-fix the width
 		$c.width( $c.width() );
-		var maxHeight = $c.height();
+		var height = $c.height();
 		this.$plane.css( 'minWidth',  $c.width() );
 		this.$columns.each( function() {
 			// Force the current width to avoid overlap issues and some cases
@@ -406,7 +406,7 @@
 			$( this ).width( width );
 			//$( this ).width( $( this ).width() );
 			// Also fix the maximum size as the container's size to avoid issues there
-			$( this ).css( 'maxHeight', maxHeight );
+			$( this ).css( 'height', height );
 		} );
 	};
 
