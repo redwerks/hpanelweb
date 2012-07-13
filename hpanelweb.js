@@ -393,8 +393,10 @@
 		// Reset the width to auto calculate it
 		$c.css( 'width', '' );
 		// Then re-fix the width
-		$c.width( $c.width() );
-		var height = $c.height();
+		var containerWidth = Math.min( $c.width(), $( window ).width() );
+		$c.width( containerWidth );
+		var height = Math.min( $c.height(), $( window ).height() );
+		$c.css( 'height', '' );
 		this.$plane.css( 'minWidth',  $c.width() );
 		this.$columns.each( function() {
 			// Force the current width to avoid overlap issues and some cases
@@ -403,11 +405,12 @@
 			safeCalc( this, function() {
 				width = $( this ).width();
 			} );
-			$( this ).width( width );
+			$( this ).width( Math.min( width, containerWidth ) );
 			//$( this ).width( $( this ).width() );
 			// Also fix the maximum size as the container's size to avoid issues there
 			$( this ).css( 'height', height );
 		} );
+		$c.height( height );
 	};
 
 	// Method to return the current widths of the columns
