@@ -75,6 +75,8 @@
 			"	z-index: 1;",
 			"	opacity: 0.35;",
 			"	background-color: #333;",
+			"}",
+			".hpanelweb-container.hpanelweb-deadindicators .hpanelweb-paneindicator {",
 			"	pointer-events: none;",
 			"}",
 			".hpanelweb-paneindicator.hpanelweb-inactive {",
@@ -100,7 +102,11 @@
 		this.$columns = this.$container.find( selector ).addClass( 'hpanelweb-column' );
 		this.options = $.extend( {
 			padding: 32,
-			leftOverlap: false
+			leftOverlap: false,
+			indicatorPassthrough: false,
+			touchSnap: false,
+			momentumSeconds: 1,
+			momentumScroll: false
 		}, options );
 		this.activeColumn = 0;
 		setup.call( this );
@@ -110,6 +116,9 @@
 	function setup() {
 		initStyle();
 		this.$columns.data( 'x-hpanelweb-parent', this.container );
+		if ( this.options.indicatorPassthrough ) {
+			this.$container.addClass( 'hpanelweb-deadindicators' );
+		}
 		this.$plane = $( '<div class="hpanelweb-plane" />' );
 		this.$leftPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-left" />' );
 		this.$rightPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-right" />' );
@@ -182,7 +191,7 @@
 				// Only work on single finger movements
 				return;
 			}
-			ontouch.touch = { target: e.target, pageX: touches[0].pageX, pageY: touches[0].pageY };
+			ontouch.touch = { target: e.target, pageX: touches[0].pageX, pageY: touches[0].pageY, momentumX: 0, momentumY: 0, eventTime: new Date, momentumDuration: 0 };
 		},
 		move: function( e ) {
 			if ( !ontouch.touch ) {
@@ -193,11 +202,14 @@
 				// Only work on single finger movements
 				return;
 			}
-			var thistouch = { target: ontouch.touch.target, pageX: touches[0].pageX, pageY: touches[0].pageY };
+			var thistouch = { target: ontouch.touch.target, pageX: touches[0].pageX, pageY: touches[0].pageY, eventTime: new Date };
 			var delta = {
 				x: ontouch.touch.pageX - thistouch.pageX,
 				y: ontouch.touch.pageY - thistouch.pageY
 			};
+			thistouch.momentumX = /*Math.round*/( ( ontouch.touch.momentumX + delta.x ) / 2 );
+			thistouch.momentumY = /*Math.round*/( ( ontouch.touch.momentumY + delta.y ) / 2 );
+			thistouch.momentumDuration = /*Math.round*/( ( ontouch.touch.momentumDuration + ( thistouch.eventTime - ontouch.touch.eventTime) ) / 2 );
 			
 			var hpanelweb = handleDelta( e.target, delta );
 			if ( hpanelweb ) {
@@ -209,8 +221,16 @@
 		},
 		end: function( e ) {
 			var hpanelweb = $( e.target ).hpanelweb( 'get' );
-			if ( hpanelweb ) {
+			if ( hpanelweb && hpanelweb.options.touchSnap ) {
 				hpanelweb.readyDelayedActivation();
+			} else {
+				hpanelweb.refreshStyles( true );
+				if ( hpanelweb.options.momentumScroll ) {
+					var multiplier = ( hpanelweb.options.momentumSeconds * 1000 ) / ontouch.touch.momentumDuration;
+					var momentumDelta = ontouch.touch.momentumX * multiplier * 0.35;
+					hpanelweb.$plane.animate( { left: parseFloat( hpanelweb.$plane.css( 'left' ) ) - momentumDelta }, 'ease-out',
+						function() { hpanelweb.refreshStyles( true ); } );
+				}
 			}
 			delete ontouch.touch;
 		}
@@ -310,6 +330,17 @@
 			container.attachEvent( 'onmousewheel', onwheel );
 			container.attachEvent( 'onclick', onclick );
 		}
+		var hpanelweb = this;
+		this.$container.delegate( '.hpanelweb-paneindicator', 'click', function( e ) {
+			var $active = hpanelweb.$columns.filter( ':activehcolumn' );
+			var isNext = $( this ).is( '.hpanelweb-paneindicator-left') ? false : true;
+			if ( isNext ) {
+				$active = $active.last().next();
+			} else {
+				$active = $active.first().prev()
+			}
+			hpanelweb.activateColumn( $active );
+		} );
 		this.$container.delegate( 'a', 'focus', function( e ) {
 			var column = $( this ).closest( '.hpanelweb-column' );
 			if ( column.is( ':not(:activehcolumn)' ) ) {
