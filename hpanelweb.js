@@ -39,6 +39,57 @@
 	 //        setting it back to 0 and recalculating (no animation) the location of columns
 
 
+	var styleInitialized = false;
+	function initStyle() {
+		if ( styleInitialized ) {
+			return;
+		}
+
+		$( [
+			'<style id="hpanelweb-style">',
+			".hpanelweb-container {",
+			"	display: block;",
+			"	position: relative;",
+			"	overflow: hidden;",
+			"}",
+			".hpanelweb-plane {",
+			"	position: absolute;",
+			"	top: 0;",
+			"	left: 0;",
+			"}",
+			".hpanelweb-column {",
+			"	position: absolute;",
+			"	top: 0;",
+			"	overflow: auto;",
+			"}",
+			".hpanelweb-column.hpanelweb-inactive {",
+			"	opacity: .35;",
+			"}",
+			".hpanelweb-paneindicator {",
+			"	position: absolute;",
+			"	top: 0;",
+			"	bottom: 0;",
+			"	width: 35px;",
+			"	z-index: 1;",
+			"	opacity: 0.35;",
+			"	background-color: #333;",
+			"	pointer-events: none;",
+			"}",
+			".hpanelweb-paneindicator.hpanelweb-inactive {",
+			"	display: none;",
+			"}",
+			".hpanelweb-paneindicator-left {",
+			"	left: 0;",
+			"}",
+			".hpanelweb-paneindicator-right {",
+			"	right: 0;",
+			"}",
+			'</style>'
+		].join( '\n' ) ).appendTo( 'head' );
+
+		styleInitialized = true;
+	}
+
 	// Constructor
 	function HPanelWeb( container, selector, options ) {
 		this.container = container;
@@ -55,26 +106,16 @@
 
 	// Setup code
 	function setup() {
+		initStyle();
 		this.$columns.data( 'x-hpanelweb-parent', this.container );
 		this.$plane = $( '<div class="hpanelweb-plane" />' );
-		this.plane = this.$plane[0]; 
+		this.$leftPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-left" />' );
+		this.$rightPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-right" />' );
+		this.plane = this.$plane[0];
 		this.$columns.appendTo( this.$plane );
-		this.$container.empty().append( this.$plane );
-		this.$container.css( {
-			display: 'block',
-			position: 'relative',
-			overflow: 'hidden'
-		} );
-		this.$plane.css( {
-			position: 'absolute',
-			top: 0,
-			left: 0
-		} );
-		this.$columns.css( {
-			position: 'absolute',
-			top: 0,
-			overflow: 'auto'
-		} );
+		this.$container.empty()
+			.append( this.$leftPaneIndicator, this.$rightPaneIndicator )
+			.append( this.$plane );
 		// Prevent tap highlighting of the panel itself
 		this.$plane.css( '-webkit-tap-highlight-color', this.$container.css( '-webkit-tap-highlight-color' ) );
 		this.$container.css( '-webkit-tap-highlight-color', 'transparent' );
@@ -469,10 +510,11 @@
 	};
 
 	HPanelWeb.prototype.refreshStyles = function( animate, $column ) {
+		this.$leftPaneIndicator.toggleClass( 'hpanelweb-inactive', this.$columns.first().is( ':activehcolumn' ) );
+		this.$rightPaneIndicator.toggleClass( 'hpanelweb-inactive', this.$columns.last().is( ':activehcolumn' ) );
 		( $column || this.$columns ).each( function() {
 			var $$ = $( this );
-			// @fixme This part is just for dev
-			$$.css( { opacity: $$.is( ':activehcolumn' ) ? 1 : .35 } );
+			$$.toggleClass( 'hpanelweb-inactive', !$$.is( ':activehcolumn' ) );
 		} );
 	};
 
