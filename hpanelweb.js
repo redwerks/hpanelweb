@@ -53,6 +53,9 @@
 			"	overflow: hidden;",
 			"	-webkit-overflow-scrolling: touch;",
 			"}",
+			".hpanelweb-container.hpanelweb-unifiedscroll {",
+			"	overflow-y: auto;",
+			"}",
 			".hpanelweb-plane {",
 			"	position: absolute;",
 			"	top: 0;",
@@ -61,8 +64,12 @@
 			".hpanelweb-column {",
 			"	position: absolute;",
 			"	top: 0;",
+			"	min-height: 100%;",
 			"	overflow: auto;",
 			"	-webkit-overflow-scrolling: touch;",
+			"}",
+			".hpanelweb-container.hpanelweb-unifiedscroll .hpanelweb-column {",
+			"	overflow: visible;",
 			"}",
 			".hpanelweb-column.hpanelweb-inactive {",
 			"	opacity: .35;",
@@ -75,6 +82,14 @@
 			"	z-index: 1;",
 			"	opacity: 0.35;",
 			"	background-color: #333;",
+			"}",
+			".hpanelweb-paneindicator div {",
+			"	position: absolute;",
+			"	top: 0;",
+			"	left: 0;",
+			"	right: 0;",
+			"	width: 100%;",
+			"	height: 100%;",
 			"}",
 			".hpanelweb-container.hpanelweb-deadindicators .hpanelweb-paneindicator {",
 			"	pointer-events: none;",
@@ -106,7 +121,8 @@
 			indicatorPassthrough: false,
 			touchSnap: false,
 			momentumSeconds: 1,
-			momentumScroll: false
+			momentumScroll: false,
+			unifiedScroll: false
 		}, options );
 		this.activeColumn = 0;
 		setup.call( this );
@@ -119,9 +135,14 @@
 		if ( this.options.indicatorPassthrough ) {
 			this.$container.addClass( 'hpanelweb-deadindicators' );
 		}
+		if ( this.options.unifiedScroll ) {
+			this.$container.addClass( 'hpanelweb-unifiedscroll' );
+		}
 		this.$plane = $( '<div class="hpanelweb-plane" />' );
-		this.$leftPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-left" />' );
-		this.$rightPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-right" />' );
+		this.$leftPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-left"><div /></div>' );
+		this.$leftPaneIndicatorInterior = this.$leftPaneIndicator.children();
+		this.$rightPaneIndicator = $( '<div class="hpanelweb-paneindicator hpanelweb-paneindicator-right"><div /></div>' );
+		this.$rightPaneIndicatorInterior = this.$rightPaneIndicator.children();
 		this.plane = this.$plane[0];
 		this.$columns.appendTo( this.$plane );
 		this.$container.empty()
@@ -171,7 +192,7 @@
 		while( targets.length ) {
 			var target = targets.shift();
 			var inScrollable = ( delta.horizontal && target.scrollWidth > target.offsetWidth )
-			|| ( !delta.horizontal && target.scrollHeight > target.offsetHeight );
+			|| !delta.horizontal;
 			if ( inScrollable ) {
 				// If we're inside an element with it's own ability to scroll in
 				// the direction the user is trying to scroll skip our handling
@@ -210,7 +231,7 @@
 			thistouch.momentumX = /*Math.round*/( ( ontouch.touch.momentumX + delta.x ) / 2 );
 			thistouch.momentumY = /*Math.round*/( ( ontouch.touch.momentumY + delta.y ) / 2 );
 			thistouch.momentumDuration = /*Math.round*/( ( ontouch.touch.momentumDuration + ( thistouch.eventTime - ontouch.touch.eventTime) ) / 2 );
-			
+
 			var hpanelweb = handleDelta( e.target, delta );
 			if ( hpanelweb ) {
 				e.preventDefault();
@@ -331,6 +352,11 @@
 			container.attachEvent( 'onclick', onclick );
 		}
 		var hpanelweb = this;
+		this.$container.bind( 'scroll', function( e ) {
+			var scrollTop = hpanelweb.$container.scrollTop();
+			hpanelweb.$leftPaneIndicatorInterior.css( 'top', scrollTop );
+			hpanelweb.$rightPaneIndicatorInterior.css( 'top', scrollTop );
+		} );
 		this.$container.delegate( '.hpanelweb-paneindicator', 'click', function( e ) {
 			var $active = hpanelweb.$columns.filter( ':activehcolumn' );
 			var isNext = $( this ).is( '.hpanelweb-paneindicator-left') ? false : true;
@@ -351,7 +377,7 @@
 
 	// Window resize, ready, and load handling
 	// We recalc on load in addition to ready in case a freshly loaded image has changed the area dimensions
-	function fullRecalculate() {
+	function fullRecalculate( e ) {
 		$( '.hpanelweb-container' ).each( function() {
 			var hpanelweb = $( this ).data( 'x-hpanelweb' );
 			if ( !hpanelweb ) {
@@ -363,7 +389,8 @@
 	}
 	$( window ).resize( fullRecalculate );
 	$( document ).ready( fullRecalculate );
-	$( document ).load( fullRecalculate );
+	// Sizes are often incorrect prior to load so recalculate everything onload
+	$( window ).load( fullRecalculate );
 
 	// Fragment link click handling
 	$( document ).delegate( 'a[href]', 'click', function( e ) {
@@ -451,27 +478,40 @@
 
 	HPanelWeb.prototype.recalculateHeight = function() {
 		var $c = this.$container;
+		this.$plane.css( 'height', '' );
+		// Clear the container height beforehand so that the presense of scrollbars that will disappear don't affect calculations
+		$c.css( 'height', '' );
 		var height = $( window ).height();
 		$( this.options.visibleSiblings || [] ).each( function() {
 			height -= $( this ).outerHeight();
 		} );
 		$c.css( 'height', height );
-		this.$plane.height( $c.height() ); 
+		if ( this.options.unifiedScroll ) {
+			// For unified scroll set the panel height to the height of the largest column
+			var planeHeight = Math.max.apply( Math, this.$columns.map(function() { return $( this ).css( 'height', '' ).height(); }).toArray() );
+		} else {
+			// For per-column scroll give the panel the same height as the container
+			var planeHeight = height;
+		}
+		this.$plane.height( planeHeight );
+		this.$leftPaneIndicator.height( planeHeight );
+		this.$leftPaneIndicatorInterior.height( height );
+		this.$rightPaneIndicator.height( planeHeight );
+		this.$rightPaneIndicatorInterior.height( height );
 	};
 
 	// Method to recalculate container and column sizes when something about the
 	// page changes.
 	HPanelWeb.prototype.recalculateSizes = function() {
-		var $c = this.$container;
+		var $c = this.$container, $p = this.$plane, hpanelweb = this;
 		this.recalculateHeight();
-		// Reset the width to auto calculate it
-		$c.css( 'width', '' );
+		// Reset the width and height to auto calculate it
+		$c.css( { width: '' });
 		// Then re-fix the width
 		var containerWidth = Math.min( $c.width(), $( window ).width() );
 		$c.width( containerWidth );
-		var height = Math.min( $c.height(), $( window ).height() );
-		$c.css( 'height', '' );
-		this.$plane.css( 'minWidth',  $c.width() );
+		var height = hpanelweb.options.unifiedScroll ? $p.height() : $c.height();
+		$p.css( 'minWidth', $c.width() );
 		this.$columns.each( function() {
 			// Force the current width to avoid overlap issues and some cases
 			// where the browser tries to shrink the content too much
@@ -481,10 +521,10 @@
 			} );
 			$( this ).width( Math.min( width, containerWidth ) );
 			//$( this ).width( $( this ).width() );
-			// Also fix the maximum size as the container's size to avoid issues there
+			// Also fix the maximum size as the container or plane's size to avoid issues there
 			$( this ).css( 'height', height );
 		} );
-		$c.height( height );
+		// $c.height( height );
 	};
 
 	// Method to return the current widths of the columns
